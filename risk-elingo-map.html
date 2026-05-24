@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Risk Elingo - Interaktivt Map</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .map-container {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+    #map {
+      width: 100% !important;
+      height: auto !important;
+      max-height: 96vh;
+      border: 10px solid #451a03;
+      border-radius: 20px;
+      box-shadow: 0 25px 50px -12px rgb(0 0 0);
+      
+    }
+    .marker {
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 16px;
+      border: 3px solid white;
+      box-shadow: 0 0 15px rgba(0,0,0,0.9);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="max-w-[1750px] mx-auto p-4">
+    <h1 class="text-4xl font-bold text-center mb-6 text-amber-400">Risk Elingo - OSRS Map</h1>
+    <p class="text-center text-gray-400 mb-6">Tryk <strong>D</strong> for at aktivere Debug Mode (viser koordinater)</p>
+   
+    <div class="flex flex-col xl:flex-row gap-6">
+      <div class="map-container flex-1">
+        <img id="map" src="risk-elingo-map.png"
+             class="cursor-crosshair"
+             alt="Risk Elingo Map">
+      </div>
+
+      <div class="w-full xl:w-80 bg-gray-800 rounded-2xl p-5 h-fit sticky top-4">
+        <h2 class="text-xl font-semibold mb-4">Vælg Team</h2>
+        <div class="grid grid-cols-3 gap-3 mb-6">
+          <button onclick="setColor(0)" class="h-12 rounded-xl border-4 border-yellow-400 bg-yellow-500/30 hover:bg-yellow-500/50 text-yellow-300 font-bold">🟡 Team 1</button>
+          <button onclick="setColor(1)" class="h-12 rounded-xl border-4 border-red-500 bg-red-500/30 hover:bg-red-500/50 text-red-300 font-bold">🔴 Team 2</button>
+          <button onclick="setColor(2)" class="h-12 rounded-xl border-4 border-blue-500 bg-blue-500/30 hover:bg-blue-500/50 text-blue-300 font-bold">🔵 Team 3</button>
+        </div>
+        
+        <button onclick="resetAll()" class="w-full py-3 bg-red-600 hover:bg-red-700 rounded-xl font-bold mb-6">
+          Nulstil alle markeringer
+        </button>
+        
+        <h3 class="font-semibold mb-3">Dine markeringer:</h3>
+        <div id="legend" class="max-h-[65vh] overflow-auto text-sm bg-gray-900 rounded-xl p-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Team Colors: Yellow, Red, Blue
+    const colors = ['#facc15', '#ef4444', '#3b82f6'];
+    let currentColor = 0;
+    let markings = JSON.parse(localStorage.getItem('riskElingoMarkings')) || {};
+    let debugMode = false;
+
+  
+    const map = document.getElementById('map');
+    const legend = document.getElementById('legend');
+
+    const positions = {
+      1: [35,13], 2: [43.5,16], 3: [47,6.4], 4: [47.4,13.5], 5: [53,25], 6: [56.5,16], 7: [61,12], 8: [68,12],
+      9: [64,16], 10: [72,16], 11: [67.3 ,17], 12: [64,23], 13: [67.5,24], 14: [71.5,26,2], 15: [24.5,15],
+      16: [21.5,23], 17: [27,24], 18: [16,25], 19: [21.5,37], 20: [30.4,36], 21: [14.5,33], 22: [12,38],
+      23: [10,44], 24: [14.6,41], 25: [17.4,45], 26: [13,52], 27: [18,52], 28: [21.5,56], 29: [38.2,39],
+      30: [38.5,50], 31: [41.5,28], 32: [44.2,35], 33: [49.4,34], 34: [54.2,30], 35: [56.8,34], 36: [45,44],
+      37: [52,40], 38: [49,48], 39: [44,54], 40: [48,58], 41: [54.3,70], 42: [56.5,46.9], 43: [56.5,53],
+      44: [60,55], 45: [58,60], 46: [60,18], 47: [59.3,22.5], 48: [58.78,28], 49: [60,36], 50: [63,37],
+      51: [57,39], 52: [62,48], 53: [62,42], 54: [65.3,32], 55: [70,34], 56: [74,32], 57: [86,16],
+      58: [81,7], 59: [67,45], 60: [70,39.5], 61: [65,49.4], 62: [73,49], 63: [70,57], 64: [76,53],
+      65: [68,64], 66: [73.5,65.5], 67: [70,70], 68: [78,30], 69: [81.5,31], 70: [76.5,36], 71: [80.5,38],
+      72: [83.5,40], 73: [78.2,42], 74: [82.5,45], 75: [22,56]
+    };
+
+    function createMarkers() {
+      document.querySelectorAll('.marker').forEach(el => el.remove());
+      Object.keys(markings).forEach(num => {
+        const pos = positions[num];
+        if (!pos) return;
+        const marker = document.createElement('div');
+        marker.className = 'marker';
+        marker.style.left = pos[0] + '%';
+        marker.style.top = pos[1] + '%';
+        marker.style.backgroundColor = colors[markings[num]];
+        marker.textContent = num;
+        document.querySelector('.map-container').appendChild(marker);
+      });
+    }
+
+    function updateLegend() {
+      let html = '';
+      for (let i = 1; i <= 75; i++) {
+        const colorIndex = markings[i];
+        const color = colorIndex !== undefined ? colors[colorIndex] : '#4b5563';
+        html += `
+          <div onclick="toggleTile(${i})" class="flex items-center gap-3 p-3 hover:bg-gray-700 rounded-xl cursor-pointer">
+            <div class="w-8 h-8 rounded-full flex-shrink-0 border border-gray-600" style="background-color: ${color}"></div>
+            <span class="font-mono text-lg">Tile ${i}</span>
+          </div>`;
+      }
+      legend.innerHTML = html;
+    }
+
+    function setColor(n) { 
+      currentColor = n; 
+    }
+
+    function toggleTile(num) {
+      if (markings[num] === currentColor) delete markings[num];
+      else markings[num] = currentColor;
+      localStorage.setItem('riskElingoMarkings', JSON.stringify(markings));
+      createMarkers();
+      updateLegend();
+    }
+
+    map.addEventListener('click', (e) => {
+      const rect = map.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+      if (debugMode) {
+        console.log(`Tile position: [${x.toFixed(1)}, ${y.toFixed(1)}]`);
+        alert(`Klikket på koordinater:\nX: ${x.toFixed(1)}%\nY: ${y.toFixed(1)}%\n\nKopier disse værdier og send dem til mig!`);
+        return;
+      }
+
+      let closest = null;
+      let minDist = Infinity;
+
+      Object.keys(positions).forEach(num => {
+        const [px, py] = positions[num];
+        const dist = Math.hypot(px - x, py - y);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = parseInt(num);
+        }
+      });
+
+      if (closest && minDist < 17) toggleTile(closest);
+    });
+
+    function resetAll() {
+      if (confirm('Nulstil alle markeringer?')) {
+        markings = {};
+        localStorage.removeItem('riskElingoMarkings');
+        createMarkers();
+        updateLegend();
+      }
+    }
+
+    createMarkers();
+    updateLegend();
+  </script>
+</body>
+</html>
