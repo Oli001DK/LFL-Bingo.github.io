@@ -101,7 +101,7 @@
         const marker = document.createElement('div');
         marker.className = 'marker';
         marker.style.left = pos[0] + '%';
-        marker.style.top = pos[1] + '%';
+        marker.style.top = pos[1]-2 + '%';
         marker.style.backgroundColor = colors[markings[num]];
         marker.textContent = num;
         document.querySelector('.map-container').appendChild(marker);
